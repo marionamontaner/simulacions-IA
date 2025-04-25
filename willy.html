@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
   <meta charset="UTF-8">
-  <title>Diagrama H-R amb evolució</title>
+  <title>Diagrama H-R amb evolució realista</title>
   <style>
     body {
       background-color: #111;
@@ -25,11 +25,11 @@
   </style>
 </head>
 <body>
-  <h1>Diagrama H-R amb evolució temporal</h1>
-  <p>Introdueix el nombre d’estrelles a generar:</p>
-  <input type="number" id="numStarsInput" value="500" />
+  <h1>Diagrama H-R amb estrelles estàtiques i evolutives</h1>
+  <p>Introdueix el nombre d'estrelles a generar:</p>
+  <input type="number" id="numStarsInput" value="500">
   <button onclick="iniciarSimulacio()">Iniciar simulació</button>
-  <div id="temps">Temps: 0 milions d’anys</div>
+  <div id="temps">Temps: 0 milions d'anys</div>
   <div id="resultats"></div>
   <canvas id="hrCanvas" width="800" height="600"></canvas>
 
@@ -43,12 +43,12 @@
     const plotWidth = width - padding.left - padding.right;
     const plotHeight = height - padding.top - padding.bottom;
 
-    const tempMin = 2500, tempMax = 40000;
+    const tempMin = 2500, tempMax = 50000;
     const lumMin = 0.0001, lumMax = 100000;
 
-    let estrelles = [];
+    let estrellesEstatiques = [];
+    let estrellesEvolutives = [];
     let tempsSimulacio = 0;
-    let animant = false;
 
     function tempToX(temp) {
       const norm = (Math.log10(temp) - Math.log10(tempMin)) / (Math.log10(tempMax) - Math.log10(tempMin));
@@ -61,7 +61,7 @@
     }
 
     function getColor(temp) {
-      if (temp > 30000) return "lightblue";
+      if (temp > 30000) return "#add8e6";
       if (temp > 10000) return "white";
       if (temp > 7500) return "yellow";
       if (temp > 6000) return "orange";
@@ -74,7 +74,7 @@
       ctx.fillStyle = "white";
       ctx.font = "13px sans-serif";
 
-      [40000, 30000, 20000, 10000, 7500, 6000, 4000, 3000].forEach(temp => {
+      [50000, 30000, 20000, 10000, 7500, 6000, 4000].forEach(temp => {
         const x = tempToX(temp);
         ctx.beginPath();
         ctx.moveTo(x, height - padding.bottom);
@@ -83,7 +83,7 @@
         ctx.fillText(temp + " K", x - 25, height - padding.bottom + 18);
       });
 
-      [0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000].forEach(lum => {
+      [0.0001, 0.01, 1, 100, 10000, 100000].forEach(lum => {
         const y = lumToY(lum);
         ctx.beginPath();
         ctx.moveTo(padding.left - 5, y);
@@ -110,87 +110,85 @@
       ctx.restore();
     }
 
+    // Generar 10 trajectòries evolutives equiespaiades entre 1 i 10 M☉
+    const trajectories = {};
+    for (let m = 1; m <= 10; m++) {
+      trajectories[m] = [
+        { t: 6000 * m, l: Math.pow(m, 3.5) },
+        { t: 5000 + 500 * m, l: Math.pow(m, 3.5) * 5 },
+        { t: 4000 + 500 * m, l: Math.pow(m, 3.5) * 10 },
+        { t: 10000, l: 0.01 }
+      ];
+    }
+
     function iniciarSimulacio() {
       const n = parseInt(document.getElementById("numStarsInput").value);
-      estrelles = [];
+      estrellesEstatiques = [];
+      estrellesEvolutives = [];
       tempsSimulacio = 0;
-      animant = true;
 
-      const seq = Math.floor(n * 0.87);
-      const gegants = Math.floor(n * 0.10);
-      const nans = n - seq - gegants;
-
-      for (let i = 0; i < seq; i++) {
+      // Generar estrelles estàtiques (diagrama H-R)
+      for (let i = 0; i < n; i++) {
         const temp = rand(3000, 30000);
         const lum = Math.pow(temp / 5800, 4) * rand(0.5, 1.5);
-        estrelles.push({ temp, lum, fase: "seq", hist: [] });
+        estrellesEstatiques.push({ temp, lum });
       }
 
-      for (let i = 0; i < gegants; i++) {
-        const temp = rand(3000, 5500);
-        const lum = rand(100, 10000);
-        estrelles.push({ temp, lum, fase: "gegant", hist: [] });
+      // Generar 10 estrelles evolutives, una per trajectòria
+      for (let m = 1; m <= 10; m++) {
+        const traj = JSON.parse(JSON.stringify(trajectories[m]));
+        estrellesEvolutives.push({ massa: m, traj, etapa: 0, interp: Math.random() });
       }
-
-      for (let i = 0; i < nans; i++) {
-        const temp = rand(5000, 20000);
-        const lum = rand(0.0001, 0.01);
-        estrelles.push({ temp, lum, fase: "nan", hist: [] });
-      }
-
-      document.getElementById("resultats").innerHTML = `
-        🔹 Seqüència principal: ${seq} estrelles<br>
-        🔸 Gegants: ${gegants} estrelles<br>
-        ⚪ Nans blancs: ${nans} estrelles
-      `;
 
       animar();
     }
 
     function updateEstrella(e) {
-      e.hist.push({ x: tempToX(e.temp), y: lumToY(e.lum) });
-      if (e.fase === "seq") {
-        e.lum *= 1.005;
-        e.temp *= 0.999;
-        if (e.lum > 1000 || e.temp < 4000) e.fase = "gegant";
-      } else if (e.fase === "gegant") {
-        e.temp *= 0.995;
-        e.lum *= 1.01;
-        if (e.lum > 10000) e.fase = "mort";
-      } else if (e.fase === "nan") {
-        e.temp *= 0.999;
-        e.lum *= 0.998;
+      const etapaActual = e.traj[e.etapa];
+      const etapaSeguent = e.traj[e.etapa + 1];
+      if (!etapaSeguent) return null;
+
+      e.interp += 0.001;
+      if (e.interp >= 1) {
+        e.interp = 0;
+        e.etapa++;
+        if (e.etapa >= e.traj.length - 1) return null;
       }
+
+      const t = etapaActual.t + (etapaSeguent.t - etapaActual.t) * e.interp;
+      const l = etapaActual.l + (etapaSeguent.l - etapaActual.l) * e.interp;
+
+      return { temp: t, lum: l };
     }
 
     function animar() {
-      if (!animant) return;
-
       tempsSimulacio++;
-      document.getElementById("temps").textContent = `Temps: ${tempsSimulacio} milions d’anys`;
+      document.getElementById("temps").textContent = `Temps: ${tempsSimulacio} milions d'anys`;
+
       drawAxes();
 
-      for (let e of estrelles) {
-        updateEstrella(e);
-        // Dibuixa trajectòria
+      // Dibuixar estrelles estàtiques
+      for (const e of estrellesEstatiques) {
+        const x = tempToX(e.temp);
+        const y = lumToY(e.lum);
         ctx.beginPath();
-        for (let i = 0; i < e.hist.length; i++) {
-          const p = e.hist[i];
-          if (i === 0) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
-        }
-        ctx.strokeStyle = getColor(e.temp);
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
+        ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
+        ctx.fillStyle = getColor(e.temp);
+        ctx.fill();
+      }
 
-        if (e.fase !== "mort") {
-          const x = tempToX(e.temp);
-          const y = lumToY(e.lum);
-          ctx.beginPath();
-          ctx.arc(x, y, 2, 0, 2 * Math.PI);
-          ctx.fillStyle = getColor(e.temp);
-          ctx.fill();
-        }
+      // Dibuixar estrelles evolutives
+      for (const e of estrellesEvolutives) {
+        const data = updateEstrella(e);
+        if (!data) continue;
+
+        const x = tempToX(data.temp);
+        const y = lumToY(data.lum);
+
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.fillStyle = getColor(data.temp);
+        ctx.fill();
       }
 
       requestAnimationFrame(animar);
