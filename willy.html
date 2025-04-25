@@ -26,6 +26,15 @@
             font-size: 16px;
             cursor: pointer;
         }
+        #resultats {
+            margin-top: 20px;
+            font-size: 16px;
+            color: lightblue;
+            text-align: left;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
     </style>
 </head>
 <body>
@@ -34,10 +43,10 @@
     <input type="number" id="numStarsInput" value="100">
     <button onclick="generarEstrelles()">Generar</button>
 
-    <!-- 🔹 Afegim aquest div per mostrar els resultats -->
-    <div id="resultats" style="margin-top: 20px; font-size: 16px; color: lightblue;"></div>
+    <div id="resultats"></div>
 
     <canvas id="hrCanvas" width="800" height="600"></canvas>
+
     <script>
         const canvas = document.getElementById("hrCanvas");
         const ctx = canvas.getContext("2d");
@@ -66,9 +75,6 @@
             return paddingLeft + plotWidth * (1 - norm);
         }
 
-       
-
-
         function lumToY(lum) {
             const logLum = Math.log10(lum);
             const logMin = Math.log10(lumMin);
@@ -78,6 +84,7 @@
         }
 
         function drawAxes() {
+            ctx.clearRect(0, 0, width, height);
             ctx.strokeStyle = "white";
             ctx.fillStyle = "white";
             ctx.lineWidth = 1;
@@ -154,21 +161,22 @@
                 else comptadors.moltAlta++;
             }
 
-            // Dibuixa
-            ctx.clearRect(0, 0, width, height);
+            // Redibuixa eixos
             drawAxes();
 
-            ctx.fillStyle = "lightblue";
-            ctx.font = "16px sans-serif";
-
-            const liniaY = paddingTop + 20;
-            ctx.fillText(`Molt baixa (<0.5 M☉): ${comptadors.moltBaixa}`, paddingLeft + 10, liniaY);
-            ctx.fillText(`Baixa (0.5–1 M☉): ${comptadors.baixa}`, paddingLeft + 10, liniaY + 20);
-            ctx.fillText(`Mitjana (1–2 M☉): ${comptadors.mitjana}`, paddingLeft + 10, liniaY + 40);
-            ctx.fillText(`Alta (2–8 M☉): ${comptadors.alta}`, paddingLeft + 10, liniaY + 60);
-            ctx.fillText(`Molt alta (>8 M☉): ${comptadors.moltAlta}`, paddingLeft + 10, liniaY + 80);
+            // ✅ Mostra els resultats fora del canvas
+            const div = document.getElementById("resultats");
+            div.innerHTML = `
+                <strong>Resultats per grup de massa:</strong><br>
+                🌑 Molt baixa (< 0.5 M☉): ${comptadors.moltBaixa}<br>
+                🌘 Baixa (0.5–1 M☉): ${comptadors.baixa}<br>
+                🌗 Mitjana (1–2 M☉): ${comptadors.mitjana}<br>
+                🌕 Alta (2–8 M☉): ${comptadors.alta}<br>
+                ☀️ Molt alta (> 8 M☉): ${comptadors.moltAlta}
+            `;
         }
 
+        // Dibuix inicial dels eixos
         drawAxes();
     </script>
 </body>
