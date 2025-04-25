@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulació Random Walk</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            background-color: white;
+        }
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simulació de Random Walk</h1>
+    <label for="steps">Nombre de passos: </label>
+    <input type="number" id="steps" value="500" min="1">
+    <button onclick="startWalk()">Inicia</button>
+    <br><br>
+    <canvas id="canvas" width="600" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+        let x, y;
+
+        function getRandomDirection() {
+            const directions = [
+                [1, 0],   // dreta
+                [-1, 0],  // esquerra
+                [0, 1],   // avall
+                [0, -1]   // amunt
+            ];
+            return directions[Math.floor(Math.random() * directions.length)];
+        }
+
+        function startWalk() {
+            const steps = parseInt(document.getElementById("steps").value);
+            x = canvas.width / 2;
+            y = canvas.height / 2;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineWidth = 1;
+
+            let i = 0;
+
+            function drawStep() {
+                if (i >= steps) return;
+
+                const [dx, dy] = getRandomDirection();
+                x += dx;
+                y += dy;
+                ctx.lineTo(x, y);
+                ctx.stroke();
+
+                i++;
+                requestAnimationFrame(drawStep); // anima pas a pas
+            }
+
+            drawStep(); // inicia la simulació
+        }
+    </script>
+</body>
+</html>
+
