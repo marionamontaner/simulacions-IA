@@ -1,183 +1,206 @@
 <!DOCTYPE html>
 <html lang="ca">
 <head>
-    <meta charset="UTF-8">
-    <title>Distribució de masses estel·lars</title>
-    <style>
-        canvas {
-            border: 1px solid #555;
-            background-color: black;
-        }
-        body {
-            font-family: sans-serif;
-            text-align: center;
-            background-color: #111;
-            color: white;
-            padding: 20px;
-        }
-        input {
-            padding: 5px;
-            font-size: 16px;
-            width: 80px;
-            margin: 10px;
-        }
-        button {
-            padding: 6px 15px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        #resultats {
-            margin-top: 20px;
-            font-size: 16px;
-            color: lightblue;
-            text-align: left;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Diagrama H-R amb evolució</title>
+  <style>
+    body {
+      background-color: #111;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    canvas {
+      background-color: black;
+      border: 1px solid #555;
+      display: block;
+      margin: 20px auto;
+    }
+    #resultats, #temps {
+      margin: 10px auto;
+      color: lightblue;
+      max-width: 600px;
+      text-align: left;
+    }
+  </style>
 </head>
 <body>
-    <h1>Distribució de masses estel·lars – Diagrama H-R</h1>
-    <p>Introdueix el nombre d'estrelles a generar:</p>
-    <input type="number" id="numStarsInput" value="100">
-    <button onclick="generarEstrelles()">Generar</button>
+  <h1>Diagrama H-R amb evolució temporal</h1>
+  <p>Introdueix el nombre d’estrelles a generar:</p>
+  <input type="number" id="numStarsInput" value="500" />
+  <button onclick="iniciarSimulacio()">Iniciar simulació</button>
+  <div id="temps">Temps: 0 milions d’anys</div>
+  <div id="resultats"></div>
+  <canvas id="hrCanvas" width="800" height="600"></canvas>
 
-    <div id="resultats"></div>
+  <script>
+    const canvas = document.getElementById("hrCanvas");
+    const ctx = canvas.getContext("2d");
+    const width = canvas.width;
+    const height = canvas.height;
 
-    <canvas id="hrCanvas" width="800" height="600"></canvas>
+    const padding = { left: 80, right: 40, top: 40, bottom: 60 };
+    const plotWidth = width - padding.left - padding.right;
+    const plotHeight = height - padding.top - padding.bottom;
 
-    <script>
-        const canvas = document.getElementById("hrCanvas");
-        const ctx = canvas.getContext("2d");
-        const width = canvas.width;
-        const height = canvas.height;
+    const tempMin = 2500, tempMax = 40000;
+    const lumMin = 0.0001, lumMax = 100000;
 
-        // Marges
-        const paddingLeft = 80;
-        const paddingRight = 40;
-        const paddingTop = 40;
-        const paddingBottom = 60;
+    let estrelles = [];
+    let tempsSimulacio = 0;
+    let animant = false;
 
-        const plotWidth = width - paddingLeft - paddingRight;
-        const plotHeight = height - paddingTop - paddingBottom;
+    function tempToX(temp) {
+      const norm = (Math.log10(temp) - Math.log10(tempMin)) / (Math.log10(tempMax) - Math.log10(tempMin));
+      return padding.left + plotWidth * (1 - norm);
+    }
 
-        const tempMin = 3000;
-        const tempMax = 30000;
-        const lumMin = 0.01;
-        const lumMax = 10000;
+    function lumToY(lum) {
+      const norm = (Math.log10(lum) - Math.log10(lumMin)) / (Math.log10(lumMax) - Math.log10(lumMin));
+      return padding.top + plotHeight * (1 - norm);
+    }
 
-        function tempToX(temp) {
-            const logTemp = Math.log10(temp);
-            const logMin = Math.log10(tempMin);
-            const logMax = Math.log10(tempMax);
-            const norm = (logTemp - logMin) / (logMax - logMin);
-            return paddingLeft + plotWidth * (1 - norm);
+    function getColor(temp) {
+      if (temp > 30000) return "lightblue";
+      if (temp > 10000) return "white";
+      if (temp > 7500) return "yellow";
+      if (temp > 6000) return "orange";
+      return "red";
+    }
+
+    function drawAxes() {
+      ctx.clearRect(0, 0, width, height);
+      ctx.strokeStyle = "white";
+      ctx.fillStyle = "white";
+      ctx.font = "13px sans-serif";
+
+      [40000, 30000, 20000, 10000, 7500, 6000, 4000, 3000].forEach(temp => {
+        const x = tempToX(temp);
+        ctx.beginPath();
+        ctx.moveTo(x, height - padding.bottom);
+        ctx.lineTo(x, height - padding.bottom + 6);
+        ctx.stroke();
+        ctx.fillText(temp + " K", x - 25, height - padding.bottom + 18);
+      });
+
+      [0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000].forEach(lum => {
+        const y = lumToY(lum);
+        ctx.beginPath();
+        ctx.moveTo(padding.left - 5, y);
+        ctx.lineTo(padding.left, y);
+        ctx.stroke();
+        ctx.fillText("L=" + lum, 10, y + 4);
+      });
+
+      ctx.beginPath();
+      ctx.moveTo(padding.left, padding.top);
+      ctx.lineTo(padding.left, height - padding.bottom);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(padding.left, height - padding.bottom);
+      ctx.lineTo(width - padding.right, height - padding.bottom);
+      ctx.stroke();
+
+      ctx.fillText("Temperatura (K) →", width / 2 - 50, height - 10);
+      ctx.save();
+      ctx.translate(20, height / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText("Luminositat (L☉)", 0, 0);
+      ctx.restore();
+    }
+
+    function iniciarSimulacio() {
+      const n = parseInt(document.getElementById("numStarsInput").value);
+      estrelles = [];
+      tempsSimulacio = 0;
+      animant = true;
+
+      const seq = Math.floor(n * 0.87);
+      const gegants = Math.floor(n * 0.10);
+      const nans = n - seq - gegants;
+
+      for (let i = 0; i < seq; i++) {
+        const temp = rand(3000, 30000);
+        const lum = Math.pow(temp / 5800, 4) * rand(0.5, 1.5);
+        estrelles.push({ temp, lum, fase: "seq", hist: [] });
+      }
+
+      for (let i = 0; i < gegants; i++) {
+        const temp = rand(3000, 5500);
+        const lum = rand(100, 10000);
+        estrelles.push({ temp, lum, fase: "gegant", hist: [] });
+      }
+
+      for (let i = 0; i < nans; i++) {
+        const temp = rand(5000, 20000);
+        const lum = rand(0.0001, 0.01);
+        estrelles.push({ temp, lum, fase: "nan", hist: [] });
+      }
+
+      document.getElementById("resultats").innerHTML = `
+        🔹 Seqüència principal: ${seq} estrelles<br>
+        🔸 Gegants: ${gegants} estrelles<br>
+        ⚪ Nans blancs: ${nans} estrelles
+      `;
+
+      animar();
+    }
+
+    function updateEstrella(e) {
+      e.hist.push({ x: tempToX(e.temp), y: lumToY(e.lum) });
+      if (e.fase === "seq") {
+        e.lum *= 1.005;
+        e.temp *= 0.999;
+        if (e.lum > 1000 || e.temp < 4000) e.fase = "gegant";
+      } else if (e.fase === "gegant") {
+        e.temp *= 0.995;
+        e.lum *= 1.01;
+        if (e.lum > 10000) e.fase = "mort";
+      } else if (e.fase === "nan") {
+        e.temp *= 0.999;
+        e.lum *= 0.998;
+      }
+    }
+
+    function animar() {
+      if (!animant) return;
+
+      tempsSimulacio++;
+      document.getElementById("temps").textContent = `Temps: ${tempsSimulacio} milions d’anys`;
+      drawAxes();
+
+      for (let e of estrelles) {
+        updateEstrella(e);
+        // Dibuixa trajectòria
+        ctx.beginPath();
+        for (let i = 0; i < e.hist.length; i++) {
+          const p = e.hist[i];
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
         }
+        ctx.strokeStyle = getColor(e.temp);
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
 
-        function lumToY(lum) {
-            const logLum = Math.log10(lum);
-            const logMin = Math.log10(lumMin);
-            const logMax = Math.log10(lumMax);
-            const norm = (logLum - logMin) / (logMax - logMin);
-            return paddingTop + plotHeight * (1 - norm);
+        if (e.fase !== "mort") {
+          const x = tempToX(e.temp);
+          const y = lumToY(e.lum);
+          ctx.beginPath();
+          ctx.arc(x, y, 2, 0, 2 * Math.PI);
+          ctx.fillStyle = getColor(e.temp);
+          ctx.fill();
         }
+      }
 
-        function drawAxes() {
-            ctx.clearRect(0, 0, width, height);
-            ctx.strokeStyle = "white";
-            ctx.fillStyle = "white";
-            ctx.lineWidth = 1;
-            ctx.font = "13px sans-serif";
+      requestAnimationFrame(animar);
+    }
 
-            const temps = [30000, 20000, 10000, 7500, 6000, 5000, 4000, 3000];
-            temps.forEach(temp => {
-                const x = tempToX(temp);
-                ctx.beginPath();
-                ctx.moveTo(x, height - paddingBottom);
-                ctx.lineTo(x, height - paddingBottom + 6);
-                ctx.stroke();
-                ctx.fillText(temp + " K", x - 25, height - paddingBottom + 20);
-            });
+    function rand(min, max) {
+      return Math.random() * (max - min) + min;
+    }
 
-            const lums = [0.01, 0.1, 1, 10, 100, 1000, 10000];
-            lums.forEach(lum => {
-                const y = lumToY(lum);
-                ctx.beginPath();
-                ctx.moveTo(paddingLeft - 6, y);
-                ctx.lineTo(paddingLeft, y);
-                ctx.stroke();
-                ctx.fillText("L=" + lum + " ☉", 10, y + 4);
-            });
-
-            ctx.beginPath();
-            ctx.moveTo(paddingLeft, paddingTop);
-            ctx.lineTo(paddingLeft, height - paddingBottom);
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(paddingLeft, height - paddingBottom);
-            ctx.lineTo(width - paddingRight, height - paddingBottom);
-            ctx.stroke();
-
-            ctx.fillText("Temperatura (K) →", width / 2 - 50, height - 15);
-            ctx.save();
-            ctx.translate(25, height / 2 + 40);
-            ctx.rotate(-Math.PI / 2);
-            ctx.fillText("Luminositat (L☉)", 0, 0);
-            ctx.restore();
-        }
-
-        // Distribució Salpeter: P(m) ∝ m^(-2.35)
-        function generarMassaSalpeter(min = 0.1, max = 50) {
-            const alpha = 2.35;
-            const r = Math.random();
-            return Math.pow((Math.pow(max, 1 - alpha) - r * (Math.pow(max, 1 - alpha) - Math.pow(min, 1 - alpha))), 1 / (1 - alpha));
-        }
-
-        function generarEstrelles() {
-            const numStars = parseInt(document.getElementById("numStarsInput").value);
-            let masses = [];
-
-            for (let i = 0; i < numStars; i++) {
-                const m = generarMassaSalpeter();
-                masses.push(m);
-            }
-
-            // Classificació en grups
-            let comptadors = {
-                moltBaixa: 0,
-                baixa: 0,
-                mitjana: 0,
-                alta: 0,
-                moltAlta: 0
-            };
-
-            for (let m of masses) {
-                if (m < 0.5) comptadors.moltBaixa++;
-                else if (m < 1) comptadors.baixa++;
-                else if (m < 2) comptadors.mitjana++;
-                else if (m < 8) comptadors.alta++;
-                else comptadors.moltAlta++;
-            }
-
-            // Redibuixa eixos
-            drawAxes();
-
-            // ✅ Mostra els resultats fora del canvas
-            const div = document.getElementById("resultats");
-            div.innerHTML = `
-                <strong>Resultats per grup de massa:</strong><br>
-                🌑 Molt baixa (< 0.5 M☉): ${comptadors.moltBaixa}<br>
-                🌘 Baixa (0.5–1 M☉): ${comptadors.baixa}<br>
-                🌗 Mitjana (1–2 M☉): ${comptadors.mitjana}<br>
-                🌕 Alta (2–8 M☉): ${comptadors.alta}<br>
-                ☀️ Molt alta (> 8 M☉): ${comptadors.moltAlta}
-            `;
-        }
-
-        // Dibuix inicial dels eixos
-        drawAxes();
-    </script>
+    drawAxes();
+  </script>
 </body>
 </html>
